@@ -31,7 +31,7 @@ function convertAllImagesToBase64(cloned) {
 					image.src = response.dataUrl;
 					pending.resolve(response.dataUrl);
 				}
-			}
+			},
 		);
 	}
 
