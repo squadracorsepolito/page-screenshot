@@ -53,5 +53,10 @@
 	},
 	"prettier": {
 		"singleQuote": true
+	},
+	"pnpm": {
+		"overrides": {
+			"eslint-plugin-unicorn": "^56.0.0"
+		}
 	}
 }

@@ -1,9 +1,6 @@
 import html2canvas from 'html2canvas';
 import optionsStorage from './options-storage.js';
 
-// See https://github.com/squadracorsepolito/page-screenshot-proxy
-const PROXY = 'https://page-screenshot.filippo.dev/api';
-
 function convertAllImagesToBase64(cloned) {
 	const pendingImagesPromises = [];
 	const pendingPromisesData = [];
@@ -22,20 +19,20 @@ function convertAllImagesToBase64(cloned) {
 	}
 
 	for (const [i, image] of images.entries()) {
-		const parameters = new URLSearchParams();
-		parameters.set('url', image.src);
-		// We fetch the current image
-		fetch(`${PROXY}?${parameters}`)
-			.then((response) => response.text())
-			.then((data) => {
+		// Fetch via background service worker to avoid CORS issues
+		chrome.runtime.sendMessage(
+			{action: 'fetch-image', url: image.src},
+			(response) => {
 				const pending = pendingPromisesData.find((p) => p.index === i);
-				image.src = data;
-				pending.resolve(data);
-			})
-			.catch((error) => {
-				const pending = pendingPromisesData.find((p) => p.index === i);
-				pending.reject(error);
-			});
+				if (!response || response.error) {
+					// Fallback: keep original src if fetch fails
+					pending.resolve(image.src);
+				} else {
+					image.src = response.dataUrl;
+					pending.resolve(response.dataUrl);
+				}
+			},
+		);
 	}
 
 	return Promise.all(pendingImagesPromises);
@@ -46,8 +43,8 @@ chrome.runtime.onMessage.addListener(async (message) => {
 		const options = await optionsStorage.getAll();
 
 		html2canvas(document.body, {
-			proxy: PROXY,
 			allowTaint: true,
+			useCORS: true,
 			onclone: convertAllImagesToBase64,
 			width: document.body.scrollWidth - 4,
 			height: document.body.scrollHeight - 4,
